@@ -1,0 +1,11 @@
+[Unit]
+Description=Hevy coach - analyse des seances
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/augmented-hevy
+Environment=PATH=%h/.local/bin:%h/.npm-global/bin:/usr/local/bin:/usr/bin:/bin
+Environment=HOME=%h
+ExecStart=/usr/bin/node %h/augmented-hevy/coach/poll.mjs
+TimeoutStartSec=1800

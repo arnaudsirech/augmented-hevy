@@ -2,3 +2,6 @@
 .env
 .env.*
 !.env.example
+
+# Coach: état local (curseur, dossiers, backups, logs), pas versionné
+coach/state/

@@ -1,0 +1,11 @@
+[Unit]
+Description=Hevy coach running - toutes les 10 minutes
+
+[Timer]
+OnBootSec=5min
+OnCalendar=*:3/10
+RandomizedDelaySec=60
+Persistent=true
+
+[Install]
+WantedBy=timers.target
