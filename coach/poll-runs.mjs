@@ -10,7 +10,7 @@ const STATE_DIR = path.join(ROOT, "coach", "state");
 const CURSOR_PATH = path.join(STATE_DIR, "runs-cursor.json");
 const LOG_DIR = path.join(STATE_DIR, "logs");
 // Garmin publie la sortie à la synchro de la montre : petite marge pour que tout soit remonté.
-const QUIET_WINDOW_MS = 5 * 60 * 1000;
+const QUIET_WINDOW_MS = 2 * 60 * 1000;
 const MAX_ATTEMPTS = 3;
 
 function ensureDirs() {
@@ -72,14 +72,19 @@ async function processRun(run, { dryRun, cursor }) {
   const attempts = (cursor.processed[run.id]?.attempts ?? 0) + 1;
 
   if (!result.ok) {
+    // Gemini n'a été marqué en échec que s'il a réellement tourné : sinon (Claude en 429,
+    // Gemini jamais lancé) il faut le laisser retenter au prochain poll — c'est tout l'objet
+    // du fallback. Le 15/09, gemini_failed:true posé à tort a gelé le run pendant 2 h.
+    const geminiRan = result.geminiResult != null;
     const wait = backoffForStatus(result.claudeResult?.apiStatus) ?? 15 * 60 * 1000;
     const retryAfter = new Date(Date.now() + wait).toISOString();
-    logLine(`ECHEC analyse (Claude + Gemini) pour ${run.id} (tentative ${attempts}) — retry après ${retryAfter}`);
+    const cause = geminiRan ? "Claude + Gemini" : `Claude (${result.claudeResult?.apiStatus ?? "?"})`;
+    logLine(`ECHEC analyse (${cause}) pour ${run.id} (tentative ${attempts}) — retry après ${retryAfter}`);
     cursor.processed[run.id] = {
       ...(cursor.processed[run.id] ?? {}),
       start_time: run.start_time,
       retry_after: retryAfter,
-      gemini_failed: true,
+      ...(geminiRan ? { gemini_failed: true } : {}),
       attempts,
     };
     return false;

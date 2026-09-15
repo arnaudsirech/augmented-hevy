@@ -1,10 +1,10 @@
 [Unit]
-Description=Hevy coach running - toutes les 10 minutes
+Description=Hevy coach running - toutes les 3 minutes
 
 [Timer]
-OnBootSec=5min
-OnCalendar=*:3/10
-RandomizedDelaySec=60
+OnBootSec=2min
+OnUnitInactiveSec=3min
+RandomizedDelaySec=20
 Persistent=true
 
 [Install]

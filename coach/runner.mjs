@@ -4,7 +4,10 @@ import { ROOT } from "./hevy.mjs";
 import { apiErrorStatus } from "./backoff.mjs";
 
 const CLAUDE_TIMEOUT_MS = 10 * 60 * 1000;
-const GEMINI_TIMEOUT_MS = 10 * 60 * 1000;
+// Le dossier running est lourd : `agy` clôturait à 5 min (« print timeout with turn in
+// progress ») et rendait une sortie partielle, donc un échec — 15/09 sur 3 runs de suite.
+const GEMINI_TIMEOUT_MS = 15 * 60 * 1000;
+const GEMINI_PRINT_TIMEOUT = "15m";
 export const GEMINI_MODEL = "gemini-3.8-flash-high";
 
 function getEnv() {
@@ -76,6 +79,7 @@ export function runGemini({ prompt, timeoutMs = GEMINI_TIMEOUT_MS, model = GEMIN
         "--model", model,
         "--dangerously-skip-permissions",
         "--output-format", "json",
+        "--print-timeout", GEMINI_PRINT_TIMEOUT,
         "--print",
         prompt,
       ],
