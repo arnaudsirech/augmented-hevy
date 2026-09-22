@@ -7,6 +7,9 @@ Priorité : masse musculaire. 5 séances/semaine, split 2 haut / 2 bas + Width D
 ## Règles dures
 - **Plafond 12 reps par série** depuis ~21 août 2026. La progression se fait **par la charge**,
   jamais en ajoutant des reps.
+  **Exception : élévations latérales (haltère et poulie)** depuis le 22/09/2026 → `3x15-25`,
+  charge légère, forme stricte. Progression par les **reps** jusqu'à 25 sur les 3 séries,
+  puis +1 cran de charge et retour vers ~15. Ne jamais les ramener dans le plafond 12.
 - **Ne jamais toucher aux temps de repos** (`rest_seconds`) : c'est sa décision.
 - Notes Hevy : **2 lignes max**, ligne 1 `NxA-B @ Xkg`, ligne 2 UN seul cue. Il ne lit pas
   les notes longues — l'analyse va dans l'email, pas dans l'app.
