@@ -17,25 +17,33 @@ Priorité : masse musculaire. 5 séances/semaine, split 2 haut / 2 bas + Width D
   (haussements d'épaules compris) : sujet déjà tranché, il garde tout.
 - Ne pas argumenter par le risque de blessure. Argumenter par la performance et le muscle.
 
-## Semaine de DELOAD — 7 au 13 septembre 2026
-Semaine de décharge planifiée (5 séances gardées, mais **volume divisé par deux** :
-3 séries → 2 sur les gros mouvements, 3 → 1 sur l'isolation ; charge maintenue à ~90 % ;
-arrêt à 3-4 RIR). Les 5 routines Hevy « — DELOAD » **existent déjà** (créées le 26 août,
-57 séries au total contre 123). À re-synchroniser sur les charges réelles vers le 4-6
-septembre, puis à supprimer après le 13.
+## Semaine de DELOAD — 2 au 8 novembre 2026 (semaine du marathon)
+Prochaine décharge alignée sur la semaine du marathon de Nice (dim 8 nov), 8 semaines après
+la précédente (7-13 sept). Décidé avec lui le 24/09/2026. Pas de deload pendant la semaine du
+semi d'Antibes (5-11 oct) : trop tôt après celle de septembre, et c'est déjà la semaine la plus
+légère du bloc côté course.
 
-**Pendant cette semaine (séances du 7 au 13 septembre inclus) :**
+**Forme de la semaine :**
+- **Les deux jours jambes sautent** (Lower 1 lun 2 nov, Lower 2 jeu 5 nov) : c'est la seule
+  semaine où ils disparaissent.
+- **Upper (mar) et Upper (ven)** en format deload standard : 3 séries → 2 sur les gros
+  mouvements, 3 → 1 sur l'isolation ; charge maintenue à ~90 % ; arrêt à 3-4 RIR.
+- **Width Day du dim 8 nov : pas de séance** (jour du marathon).
+- Routines « — DELOAD » à construire vers le 30 oct sur les charges du moment, à supprimer
+  après le 8 nov.
+
+**Pendant cette semaine (séances du 2 au 8 novembre inclus) :**
 - **Ne modifie AUCUNE charge.** Pas de `changes` de `target_weight_kg`, dans aucun sens.
   Une séance de deload est censée être facile : « c'était léger » n'est pas un signal de
   progression, et une cible non tenue n'est pas une régression.
 - Écris quand même l'email, mais analyse la séance **comme une décharge** : pas de tableau
   de progression, pas de comparaison de tonnage avec les semaines précédentes.
-- Ne compare pas non plus les séances qui SUIVENT (semaine du 14 septembre) à celles de la
-  semaine de deload — la référence reste la semaine du 31 août.
+- Ne compare pas non plus les séances qui SUIVENT (semaine du 9 novembre, récupération
+  post-marathon) à celles de la semaine de deload — la référence reste la semaine du 26 octobre.
 
-**Pourquoi cette forme :** la décharge du 3-9 août avait gardé le volume et baissé la charge,
-et n'a rien donné. C'est le **volume** qui crée la fatigue et la **charge** qui préserve le
-muscle : on coupe donc les séries, pas les kilos. Décidé avec lui le 26 août 2026.
+**Pourquoi cette forme :** c'est le **volume** qui crée la fatigue et la **charge** qui préserve
+le muscle : on coupe les séries, pas les kilos (décidé le 26 août 2026, après l'échec de la
+décharge du 3-9 août qui avait fait l'inverse).
 
 ## Blessures en cours (à mettre à jour !)
 - Chute du 15 août 2026 : paumes — bloque les appuis paume au sol / mouvements de poussée
