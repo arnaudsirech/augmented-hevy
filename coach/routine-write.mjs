@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import path from "node:path";
 import { ROOT, hevyGet, hevyPut, fetchPages } from "./hevy.mjs";
+import { repCeiling, parseNoteRange } from "./rep-policy.mjs";
 
 const NOTE_FIRST_LINE_RE = /^\d+x\d+(-\d+)? @ [\d.]+ ?kg/i;
 const MAX_NOTE_CHARS = 160;
@@ -40,11 +41,16 @@ function workingSetCount(ex) {
  * routine cible en a un autre nombre, on réécrit ce chiffre plutôt que de
  * propager une note qui ment.
  */
-function retargetNote(notes, setCount) {
+function retargetNote(notes, setCount, weightKg) {
   if (!notes || setCount < 1) return notes;
   const lines = notes.split("\n");
   lines[0] = lines[0].replace(/^\s*\d+(?=\s*[x×])/, String(setCount));
+  if (weightKg != null) lines[0] = lines[0].replace(/@ ?(\+?)[\d.]+ ?kg/i, (_, plus) => `@ ${plus}${weightKg}kg`);
   return lines.join("\n");
+}
+
+function topWeight(ex) {
+  return (ex?.sets ?? []).reduce((b, s) => Math.max(b, s.weight_kg ?? 0), 0);
 }
 
 function backupPath(routineId) {
@@ -56,7 +62,7 @@ function backupPath(routineId) {
 
 function validateChange(change, liveExercise, caps = CAPS) {
   const errors = [];
-  const allowedKeys = new Set(["exercise_template_id", "target_weight_kg", "notes"]);
+  const allowedKeys = new Set(["exercise_template_id", "target_weight_kg", "target_reps", "notes"]);
   for (const key of Object.keys(change)) {
     if (!allowedKeys.has(key)) errors.push(`clé non autorisée: ${key}`);
   }
@@ -84,6 +90,27 @@ function validateChange(change, liveExercise, caps = CAPS) {
     }
   }
 
+  const range = parseNoteRange(change.notes ?? liveExercise.notes);
+  const ceiling = repCeiling(liveExercise.exercise_template_id);
+  if (range && range.max > ceiling) {
+    errors.push(`fourchette ${range.min}-${range.max} au-delà du plafond de ${ceiling} reps pour ${liveExercise.title}`);
+  }
+
+  if (change.target_reps !== undefined) {
+    const working = workingSetCount(liveExercise);
+    const reps = Array.isArray(change.target_reps) ? change.target_reps : null;
+    if (reps && reps.length !== working) {
+      errors.push(`target_reps: ${reps.length} valeurs pour ${working} séries de travail sur ${liveExercise.title}`);
+    }
+    const lo = range?.min ?? 1;
+    const hi = Math.min(range?.max ?? ceiling, ceiling);
+    for (const r of reps ?? [change.target_reps]) {
+      if (!Number.isInteger(r) || r < lo || r > hi) {
+        errors.push(`target_reps ${r} hors fourchette ${lo}-${hi} pour ${liveExercise.title}`);
+      }
+    }
+  }
+
   if (change.notes !== undefined) {
     const notes = change.notes;
     const lines = notes.split("\n");
@@ -97,7 +124,13 @@ function validateChange(change, liveExercise, caps = CAPS) {
   return errors;
 }
 
+function targetRepsFor(change, workingIndex) {
+  if (change?.target_reps === undefined) return undefined;
+  return Array.isArray(change.target_reps) ? change.target_reps[workingIndex] : change.target_reps;
+}
+
 function mapExerciseForPut(liveEx, change) {
+  let workingIndex = 0;
   const sets = liveEx.sets.map((s) => {
     const out = {
       type: s.type,
@@ -107,8 +140,10 @@ function mapExerciseForPut(liveEx, change) {
       duration_seconds: s.duration_seconds,
       custom_metric: s.custom_metric,
     };
-    if (change?.target_weight_kg !== undefined && s.type !== "warmup") {
-      out.weight_kg = change.target_weight_kg;
+    if (s.type !== "warmup") {
+      if (change?.target_weight_kg !== undefined) out.weight_kg = change.target_weight_kg;
+      const reps = targetRepsFor(change, workingIndex++);
+      if (reps !== undefined) out.reps = reps;
     }
     return out;
   });
@@ -145,6 +180,15 @@ function diffApplied(before, after, changes) {
         mismatches.push(
           `charge non appliquée sur ${afterEx.title}: attendu ${change.target_weight_kg}, obtenu ${afterTop}`
         );
+      }
+    }
+
+    if (change.target_reps !== undefined) {
+      const working = (afterEx.sets ?? []).filter((s) => s.type !== "warmup");
+      entry.reps_from = (beforeEx?.sets ?? []).filter((s) => s.type !== "warmup").map((s) => s.reps);
+      entry.reps_to = working.map((s) => s.reps);
+      if (working.some((s, i) => s.reps !== targetRepsFor(change, i))) {
+        mismatches.push(`reps non appliquées sur ${afterEx.title}: obtenu ${entry.reps_to.join("/")}`);
       }
     }
 
@@ -198,8 +242,21 @@ async function propagate(primaryRoutine, changes, { dryRun }) {
 
       const local = { exercise_template_id: change.exercise_template_id };
       if (change.target_weight_kg !== undefined) local.target_weight_kg = change.target_weight_kg;
-      if (change.notes !== undefined) local.notes = retargetNote(change.notes, workingSetCount(ex));
+      // Une prescription de reps ne vaut que pour la charge à laquelle elle a été
+      // calculée : Lower body 1 tient le calf à 120 kg quand Lower Body 3 est à 130.
+      const primaryEx = primaryRoutine.exercises.find((e) => e.exercise_template_id === change.exercise_template_id);
+      const sameLoad = change.target_weight_kg !== undefined || topWeight(ex) === topWeight(primaryEx);
+      if (change.target_reps !== undefined && sameLoad) {
+        const arr = Array.isArray(change.target_reps);
+        if (!arr || change.target_reps.length === workingSetCount(ex)) local.target_reps = change.target_reps;
+        else local.target_reps = Math.min(...change.target_reps);
+      }
+      if (change.notes !== undefined) {
+        const weight = change.target_weight_kg ?? topWeight(ex);
+        local.notes = retargetNote(change.notes, workingSetCount(ex), weight);
+      }
 
+      if (Object.keys(local).length === 1) continue;
       const errs = validateChange(local, ex, PROPAGATION_CAPS);
       if (errs.length > 0) {
         skipped.push({ routine: target.title, exercise: ex.title, errors: errs });
@@ -218,6 +275,7 @@ async function propagate(primaryRoutine, changes, { dryRun }) {
           exercise: ex.title,
           from: ex.sets.reduce((b, s) => Math.max(b, s.weight_kg ?? 0), 0),
           to: c.target_weight_kg ?? null,
+          reps_to: c.target_reps ?? null,
           dry_run: true,
         });
       }
@@ -324,6 +382,11 @@ async function main() {
       const currentTop = liveEx.sets.reduce((b, s) => Math.max(b, s.weight_kg ?? 0), 0);
       if (change.target_weight_kg !== undefined) {
         diffLines.push(`${liveEx.title}: ${currentTop}kg -> ${change.target_weight_kg}kg`);
+      }
+      if (change.target_reps !== undefined) {
+        const cur = liveEx.sets.filter((s) => s.type !== "warmup").map((s) => s.reps).join("/");
+        const next = Array.isArray(change.target_reps) ? change.target_reps.join("/") : change.target_reps;
+        diffLines.push(`${liveEx.title} reps: ${cur} -> ${next}`);
       }
       if (change.notes !== undefined) {
         diffLines.push(`${liveEx.title} notes: "${liveEx.notes}" -> "${change.notes}"`);

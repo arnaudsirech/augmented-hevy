@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import { ROOT, hevyGet, fetchPages } from "./hevy.mjs";
+import { repCeiling, isRepProgression, parseNoteRange } from "./rep-policy.mjs";
 
 function epley1RM(weightKg, reps) {
   if (!weightKg || !reps) return null;
@@ -69,6 +70,10 @@ function summarizeRoutine(routine) {
         target_sets: sets.length,
         target_weight_kg: topTarget?.weight_kg ?? null,
         target_reps: topTarget?.reps ?? null,
+        target_reps_per_set: sets.filter((s) => s.type !== "warmup").map((s) => s.reps ?? null),
+        rep_range: parseNoteRange(ex.notes),
+        rep_ceiling: repCeiling(ex.exercise_template_id),
+        progression: isRepProgression(ex.exercise_template_id) ? "reps" : "charge",
       };
     }),
   };
@@ -172,7 +177,11 @@ export async function buildDossier(workout) {
       const target = routineSummary.exercises.find(
         (e) => e.exercise_template_id === row.exercise_template_id
       );
-      if (target) row.target_weight_kg = target.target_weight_kg;
+      if (target) {
+        row.target_weight_kg = target.target_weight_kg;
+        row.target_reps_per_set = target.target_reps_per_set;
+        row.progression = target.progression;
+      }
     }
   }
 

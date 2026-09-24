@@ -10,6 +10,11 @@ Priorité : masse musculaire. 5 séances/semaine, split 2 haut / 2 bas + Width D
   **Exception : élévations latérales (haltère et poulie)** depuis le 22/09/2026 → `3x15-25`,
   charge légère, forme stricte. Progression par les **reps** jusqu'à 25 sur les 3 séries,
   puis +1 cran de charge et retour vers ~15. Ne jamais les ramener dans le plafond 12.
+  **Exception : calf press (machine)** depuis le 24/09/2026 → `3x15-20`, même logique :
+  reps jusqu'à 20 sur les 3 séries, puis +1 cran de charge et retour vers ~15. C'est sa
+  décision (« j'aime bien »), ne pas la remettre en question.
+- **Chaque séance, prescrire charge + reps par série** pour la prochaine fois (voir prompt).
+- **Shrugs à la barre** (Shrug (Barbell)) depuis le 24/09/2026, plus aux haltères.
 - **Ne jamais toucher aux temps de repos** (`rest_seconds`) : c'est sa décision.
 - Notes Hevy : **2 lignes max**, ligne 1 `NxA-B @ Xkg`, ligne 2 UN seul cue. Il ne lit pas
   les notes longues — l'analyse va dans l'email, pas dans l'app.
