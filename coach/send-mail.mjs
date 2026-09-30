@@ -1,9 +1,10 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { envValue } from "./hevy.mjs";
 
 const execFileAsync = promisify(execFile);
-const TO = "arnaud.sirech@gmail.com";
+const TO = envValue("COACH_EMAIL_TO");
 
 async function sendViaGws({ to, subject, html, dryRun }) {
   const args = [
@@ -22,6 +23,7 @@ async function sendViaGws({ to, subject, html, dryRun }) {
 async function main() {
   const args = process.argv.slice(2);
   const dryRun = args.includes("--dry-run");
+  if (!TO) throw new Error("COACH_EMAIL_TO absent de .env");
 
   if (args.includes("--test")) {
     const result = await sendViaGws({

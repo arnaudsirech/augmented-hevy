@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
-HOST=192.168.1.33
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+HOST="${DEPLOY_HOST:-$(grep -E '^DEPLOY_HOST=' "$DIR/.env" | cut -d= -f2-)}"
+: "${HOST:?DEPLOY_HOST absent de .env (ex. user@serveur)}"
 
 rsync -av --delete \
   --exclude node_modules --exclude .git --exclude web --exclude server \

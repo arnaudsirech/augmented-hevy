@@ -5,3 +5,9 @@
 
 # Coach: état local (curseur, dossiers, backups, logs), pas versionné
 coach/state/
+
+# Données personnelles : restent sur disque, hors du dépôt public
+coach/context.md
+coach/journal.md
+coach/journal-runs.md
+.claude/skills/garmin/

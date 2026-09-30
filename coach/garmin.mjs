@@ -1,5 +1,5 @@
-// Client de l'API Garmin locale (garmin-api sur lepetek). Aucune dépendance.
-const BASE = process.env.GARMIN_API_BASE ?? "http://192.168.1.33:8000";
+// Client de l'API Garmin locale (garmin-api sur le serveur). Aucune dépendance.
+const BASE = process.env.GARMIN_API_BASE ?? "http://127.0.0.1:8000";
 
 const RUN_TYPES = new Set(["running", "treadmill_running"]);
 
