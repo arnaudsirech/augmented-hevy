@@ -6,6 +6,7 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 rsync -av --delete \
   --exclude node_modules --exclude .git --exclude web --exclude server \
   --exclude coach/state \
+  --exclude coach/journal.md --exclude coach/journal-runs.md \
   "$DIR/" "$HOST:~/augmented-hevy/"
 
 rsync -av "$DIR/.env" "$HOST:~/augmented-hevy/.env"

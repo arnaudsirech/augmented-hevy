@@ -3,8 +3,7 @@ import path from "node:path";
 import { ROOT } from "./hevy.mjs";
 import { listRuns, parseLocal } from "./garmin.mjs";
 import { buildRunDossier } from "./run-dossier.mjs";
-import { backoffForStatus, isWaiting } from "./backoff.mjs";
-import { runCoachWithFallback } from "./runner.mjs";
+import { isWaiting, retryDelayMs, runRun } from "./pipeline.mjs";
 
 const STATE_DIR = path.join(ROOT, "coach", "state");
 const CURSOR_PATH = path.join(STATE_DIR, "runs-cursor.json");
@@ -30,16 +29,6 @@ const loadCursor = () =>
 
 const saveCursor = (c) => writeFileSync(CURSOR_PATH, JSON.stringify(c, null, 2));
 
-function emailWasSent(runId) {
-  const p = path.join(STATE_DIR, `out-run-${runId}.email.json`);
-  if (!existsSync(p)) return false;
-  try {
-    return JSON.parse(readFileSync(p, "utf8")).sent === true;
-  } catch {
-    return false;
-  }
-}
-
 function cleanStaleFiles(runId) {
   const stale = path.join(STATE_DIR, `out-run-${runId}.email.json`);
   if (existsSync(stale)) rmSync(stale);
@@ -51,40 +40,18 @@ async function processRun(run, { dryRun, cursor }) {
   cleanStaleFiles(run.id);
   await buildRunDossier(run);
 
-  const prompt =
-    readFileSync(path.join(ROOT, "coach", "prompts", "analyse-run.md"), "utf8") +
-    `\n\nDOSSIER=coach/state/run-dossier-${run.id}.json` +
-    `\nRUN_ID=${run.id}` +
-    (dryRun ? `\nDRY_RUN=1` : ``);
-
-  const already = cursor.processed[run.id];
-  const now = Date.now();
-  const claudeWaiting = isWaiting(already, now);
-
-  const result = await runCoachWithFallback({
-    prompt,
-    logLine,
-    isEmailSent: () => (dryRun ? true : emailWasSent(run.id)),
-    cleanStale: () => cleanStaleFiles(run.id),
-    skipClaude: claudeWaiting,
-  });
-
   const attempts = (cursor.processed[run.id]?.attempts ?? 0) + 1;
 
-  if (!result.ok) {
-    // Gemini n'a été marqué en échec que s'il a réellement tourné : sinon (Claude en 429,
-    // Gemini jamais lancé) il faut le laisser retenter au prochain poll — c'est tout l'objet
-    // du fallback. Le 15/09, gemini_failed:true posé à tort a gelé le run pendant 2 h.
-    const geminiRan = result.geminiResult != null;
-    const wait = backoffForStatus(result.claudeResult?.apiStatus) ?? 15 * 60 * 1000;
-    const retryAfter = new Date(Date.now() + wait).toISOString();
-    const cause = geminiRan ? "Claude + Gemini" : `Claude (${result.claudeResult?.apiStatus ?? "?"})`;
-    logLine(`ECHEC analyse (${cause}) pour ${run.id} (tentative ${attempts}) — retry après ${retryAfter}`);
+  let result;
+  try {
+    result = await runRun({ run, dryRun, logLine });
+  } catch (error) {
+    const retryAfter = new Date(Date.now() + retryDelayMs(error)).toISOString();
+    logLine(`ECHEC analyse pour ${run.id} (tentative ${attempts}) : ${error.message} — retry après ${retryAfter}`);
     cursor.processed[run.id] = {
       ...(cursor.processed[run.id] ?? {}),
       start_time: run.start_time,
       retry_after: retryAfter,
-      ...(geminiRan ? { gemini_failed: true } : {}),
       attempts,
     };
     return false;
@@ -95,15 +62,13 @@ async function processRun(run, { dryRun, cursor }) {
     return true;
   }
 
-  logLine(`SUCCES (${result.engine}${result.fallback ? " [fallback]" : ""}) pour ${run.id}`);
+  logLine(`SUCCES (${result.engine}) pour ${run.id}`);
   cursor.processed[run.id] = {
     start_time: run.start_time,
     analysed_at: new Date().toISOString(),
     engine: result.engine,
     attempts,
   };
-  delete cursor.processed[run.id].retry_after;
-  delete cursor.processed[run.id].gemini_failed;
   return true;
 }
 
@@ -142,11 +107,8 @@ async function main() {
       continue;
     }
     if (isWaiting(already, now) && !force) {
-      if (already.gemini_failed) {
-        logLine(`en attente jusqu'à ${already.retry_after}: ${run.id} (Claude et Gemini ont échoué)`);
-        continue;
-      }
-      logLine(`reprise via fallback Gemini: ${run.id} (quota Claude en attente jusqu'à ${already.retry_after})`);
+      logLine(`en attente jusqu'à ${already.retry_after}: ${run.id}`);
+      continue;
     }
     if (already && !succeeded && (already.attempts ?? 0) >= MAX_ATTEMPTS && !force) {
       logLine(`ERROR abandon: ${run.id} a échoué ${already.attempts} fois`);

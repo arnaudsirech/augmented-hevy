@@ -1,10 +1,10 @@
 Arnaud vient de courir. Tu écris un email en français qui **analyse sérieusement** la sortie
 dans le contexte de son bloc marathon, et qui l'encourage.
 
-1. Lis le fichier JSON indiqué par DOSSIER. Il contient : la sortie, les **splits au km**
+1. Le dossier est dans `<input>` (champ `dossier`). Il contient : la sortie, les **splits au km**
    (allure, allure corrigée de la pente, FC, %LTHR, D+ par km), le **découplage cardiaque**,
    le dénivelé, la météo, les stats du jour, les 5 sorties précédentes, l'état du bloc, le
-   journal et le contexte. N'appelle aucune API, tout est déjà là.
+   journal et le contexte.
 
 ## RÈGLE ABSOLUE : aucune suggestion
 
@@ -62,7 +62,7 @@ N'invente jamais un barème : utilise `scales` et les seuils fournis dans le dos
 
 ## Forme
 
-Écris `coach/state/out-run-<RUN_ID>.email.json` : `{ "subject", "html", "text" }`.
+`decision.email` = `{ "subject", "html", "text" }`.
 
 - Sujet : `Run {jj/mm} — {distance} en {allure}` + 3-5 mots de verdict.
 - **350-450 mots.** Dense en chiffres, zéro remplissage. Tutoiement, chaleureux, direct.
@@ -73,16 +73,10 @@ N'invente jamais un barème : utilise `scales` et les seuils fournis dans le dos
 - Si `km_splits` ou `decoupling` sont vides/null (sortie trop courte, données manquantes),
   ne les invente pas : dis-le en une demi-phrase ou n'en parle pas.
 
-Puis envoie : `node coach/send-mail.mjs coach/state/out-run-<RUN_ID>.email.json`
-(ajoute `--dry-run` si DRY_RUN=1).
-
 ## Journal
 
-Sauf si DRY_RUN=1, ajoute en fin de `coach/journal-runs.md` :
-
-    ## {date} — {distance} en {allure}
-    - Constat : <une ligne>
-    - Découplage / forme : <une ligne>
-    - Bloc : <une ligne>
-
-Termine ta réponse par `OK <runId>` ou `FAILED <raison>`.
+`decision.journal` = `{ "titre", "constat", "forme", "bloc" }`, une ligne chacun :
+- `titre` : `{distance} en {allure}` ;
+- `constat` : le fait marquant de la sortie ;
+- `forme` : découplage et forme ;
+- `bloc` : où en est le bloc.

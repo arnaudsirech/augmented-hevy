@@ -7,7 +7,7 @@ export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "
 
 let cachedKey = null;
 
-function envValue(name) {
+export function envValue(name) {
   if (process.env[name]) return process.env[name];
   const envPath = path.join(ROOT, ".env");
   const raw = readFileSync(envPath, "utf8");

@@ -2,15 +2,13 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync, appendFileSync, rmS
 import path from "node:path";
 import { ROOT, hevyGet, fetchPages } from "./hevy.mjs";
 import { buildDossier } from "./dossier.mjs";
-import { backoffForStatus, isWaiting } from "./backoff.mjs";
-import { runCoachWithFallback } from "./runner.mjs";
+import { isWaiting, retryDelayMs, runSeance } from "./pipeline.mjs";
 
 const STATE_DIR = path.join(ROOT, "coach", "state");
 const CURSOR_PATH = path.join(STATE_DIR, "cursor.json");
 const LOG_DIR = path.join(STATE_DIR, "logs");
 const QUIET_WINDOW_MS = 10 * 60 * 1000;
 const MAX_ATTEMPTS = 3;
-const CLAUDE_TIMEOUT_MS = 10 * 60 * 1000;
 
 function ensureDirs() {
   if (!existsSync(STATE_DIR)) mkdirSync(STATE_DIR, { recursive: true });
@@ -43,17 +41,6 @@ async function fetchUpdatedWorkoutsSince(since) {
   return events.filter((e) => e.type === "updated").map((e) => e.workout);
 }
 
-function emailWasSent(workoutId) {
-  const emailPath = path.join(STATE_DIR, `out-${workoutId}.email.json`);
-  if (!existsSync(emailPath)) return false;
-  try {
-    const email = JSON.parse(readFileSync(emailPath, "utf8"));
-    return email.sent === true;
-  } catch {
-    return false;
-  }
-}
-
 function cleanStaleFiles(workoutId) {
   for (const suffix of ["email.json", "routine.json", "routine.verified.json"]) {
     const stale = path.join(STATE_DIR, `out-${workoutId}.${suffix}`);
@@ -67,36 +54,18 @@ async function processWorkout(workout, { dryRun, cursor }) {
   cleanStaleFiles(workout.id);
   await buildDossier(workout);
 
-  const promptTemplate = readFileSync(path.join(ROOT, "coach", "prompts", "analyse-seance.md"), "utf8");
-  const prompt =
-    promptTemplate +
-    `\n\nDOSSIER=coach/state/dossier-${workout.id}.json` +
-    `\nWORKOUT_ID=${workout.id}` +
-    (dryRun ? `\nDRY_RUN=1` : ``);
-
-  const already = cursor.processed[workout.id];
-  const now = Date.now();
-  const claudeWaiting = isWaiting(already, now);
-
-  const result = await runCoachWithFallback({
-    prompt,
-    logLine,
-    isEmailSent: () => (dryRun ? true : emailWasSent(workout.id)),
-    cleanStale: () => cleanStaleFiles(workout.id),
-    skipClaude: claudeWaiting,
-  });
-
   const attempts = (cursor.processed[workout.id]?.attempts ?? 0) + 1;
 
-  if (!result.ok) {
-    const wait = backoffForStatus(result.claudeResult?.apiStatus) ?? 15 * 60 * 1000;
-    const retryAfter = new Date(Date.now() + wait).toISOString();
-    logLine(`ECHEC analyse (Claude + Gemini) pour ${workout.id} (tentative ${attempts}) — nouvelle tentative après ${retryAfter}`);
+  let result;
+  try {
+    result = await runSeance({ workout, dryRun, logLine });
+  } catch (error) {
+    const retryAfter = new Date(Date.now() + retryDelayMs(error)).toISOString();
+    logLine(`ECHEC analyse pour ${workout.id} (tentative ${attempts}) : ${error.message} — nouvelle tentative après ${retryAfter}`);
     cursor.processed[workout.id] = {
       ...(cursor.processed[workout.id] ?? {}),
       updated_at: workout.updated_at,
       retry_after: retryAfter,
-      gemini_failed: true,
       attempts,
     };
     return false;
@@ -107,15 +76,13 @@ async function processWorkout(workout, { dryRun, cursor }) {
     return true;
   }
 
-  logLine(`SUCCES (${result.engine}${result.fallback ? " [fallback]" : ""}) pour ${workout.id}`);
+  logLine(`SUCCES (${result.engine}) pour ${workout.id}`);
   cursor.processed[workout.id] = {
     updated_at: workout.updated_at,
     analysed_at: new Date().toISOString(),
     engine: result.engine,
     attempts,
   };
-  delete cursor.processed[workout.id].retry_after;
-  delete cursor.processed[workout.id].gemini_failed;
   return true;
 }
 
@@ -162,12 +129,9 @@ async function main() {
       continue;
     }
     if (isWaiting(already, now) && !force) {
-      if (already.gemini_failed) {
-        logLine(`en attente jusqu'à ${already.retry_after}: ${workout.id} (Claude et Gemini ont échoué)`);
-        blockers.push(workout.updated_at);
-        continue;
-      }
-      logLine(`reprise via fallback Gemini: ${workout.id} (quota Claude en attente jusqu'à ${already.retry_after})`);
+      logLine(`en attente jusqu'à ${already.retry_after}: ${workout.id}`);
+      blockers.push(workout.updated_at);
+      continue;
     }
     if (already && !succeeded && (already.attempts ?? 0) >= MAX_ATTEMPTS && !force) {
       // Abandon définitif : on ne le compte plus comme blocker, sinon le curseur gèlerait.
